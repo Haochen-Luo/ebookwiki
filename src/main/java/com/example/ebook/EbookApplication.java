@@ -20,7 +20,7 @@ public class EbookApplication {
         SpringApplication app = new SpringApplication(EbookApplication.class);
         Environment env = app.run(args).getEnvironment();
         LOG.info("successfully started!");
-
+        LOG.info("Address: http://127.0.1:{}",env.getProperty("server.port"));
     }
 
 }
