@@ -15,7 +15,7 @@ public class EbookApplication {
 
     public static void main(String[] args) {
         System.out.println("running");
-        SpringApplication.run(EbookApplication.class, args);
+//        SpringApplication.run(EbookApplication.class, args);
 
         SpringApplication app = new SpringApplication(EbookApplication.class);
         Environment env = app.run(args).getEnvironment();
