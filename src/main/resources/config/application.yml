@@ -1,2 +1,4 @@
-#server:
-#  port: 8881
+server:
+  port: 8881
+test:
+  hello: HelloWorldPage7
