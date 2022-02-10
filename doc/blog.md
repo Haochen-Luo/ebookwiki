@@ -18,3 +18,7 @@ TestMapper再去找对应的xml
 ### 用Mybatis generator生成的demoMapper的selectByExample
 demoMapper.selectByExample(null);类似于 where. null 意味着select all
 
+### 快捷键
+Ctrl+Alt+v
+
+### EbookExample.Criteria 类似于 where
