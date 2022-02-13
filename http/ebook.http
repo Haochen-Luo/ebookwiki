@@ -1,3 +1,4 @@
-GET http://localhost:8881/ebook/list
+GET http://localhost:8881/ebook/list?name=Spring
+
 
 

@@ -22,3 +22,40 @@ demoMapper.selectByExample(null);类似于 where. null 意味着select all
 Ctrl+Alt+v
 
 ### EbookExample.Criteria 类似于 where
+
+## 2022/2/11
+3-7有提到自动映射
+
+![img.png](img.png)
+![img_1.png](img_1.png)
+
+GET http://localhost:8881/ebook/list?name=Spring
+请求参数是name,类也是name,spring可以自动映射
+
+## 2022/2/13
+
+
+
+### web/dist
+通过IDEA npm tab的build生成的文件
+
+### web/public
+访问这里的资源需要href="<%= BASE_URL%>favicon.ico"
+### src/assets
+静态文件
+
+### src/router 
+各种页面对应的路由
+比如最开始的/和/about
+/about使用了懒加载，不会一次性加载所有的内容
+
+### src/App.vue
+初始页面
+
+### main.ts
+启动配置文件
+create(App) 对应App.vue
+mount('#app')中的#app可以让人联想到选择器 肯定有一个div id = "app"
+package-lock.json
+
+**main.ts将内容页App.vue渲染到index.html,完成页面显示**
