@@ -59,3 +59,23 @@ mount('#app')中的#app可以让人联想到选择器 肯定有一个div id = "a
 package-lock.json
 
 **main.ts将内容页App.vue渲染到index.html,完成页面显示**
+
+
+### Somethingelse 
+_What is this?_ Alter from github
+We found potential security vulnerabilities in your dependencies.
+Only the owner of this repository can see this message.
+
+### 2/14
+
+页面布局: https://2x.antdv.com/components/layout-cn
+```vue
+<a-layout>
+    <a-layout-header>Header</a-layout-header>
+    <a-layout>
+      <a-layout-sider>Sider</a-layout-sider>
+      <a-layout-content>Content</a-layout-content>
+    </a-layout>
+    <a-layout-footer>Footer</a-layout-footer>
+  </a-layout>
+```
