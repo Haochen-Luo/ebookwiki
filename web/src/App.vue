@@ -1,33 +1,20 @@
 <template>
-  <div id="nav">
-    <router-link to="/">Home</router-link> |
-    <router-link to="/about">About</router-link>
-  </div>
+  <the-header/>
   <router-view/>
+  <the-footer/>
+
 </template>
 
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-}
-
-#nav {
-  padding: 30px;
-}
-
-#nav a {
-  font-weight: bold;
-  color: #2c3e50;
-}
-
-#nav a.router-link-exact-active {
-  color: #42b983;
+#components-layout-demo-top-side-2 .logo {
+  width: 120px;
+  height: 31px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 16px 28px 16px 0;
+  float: left;
 }
 </style>
+
 
 <!--<template>-->
 <!--  <a-layout id="components-layout-demo-top-side-2">-->
@@ -96,3 +83,10 @@
 <!--  components: {TheFooter, TheHeader}-->
 <!--}-->
 <!--</script>-->
+<script>
+import TheFooter from "@/components/the-footer";
+import TheHeader from "@/components/the-header";
+export default {
+  components: {TheHeader, TheFooter}
+}
+</script>

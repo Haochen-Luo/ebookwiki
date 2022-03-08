@@ -1,6 +1,6 @@
 <template>
   <a-layout-footer style="text-align: center">
-    Ebookwiki， helloworld!
+    This is the footer of the webpage！
   </a-layout-footer>
 </template>
 

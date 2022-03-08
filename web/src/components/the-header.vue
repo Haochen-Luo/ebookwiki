@@ -1,5 +1,5 @@
 <template>
-  <a-layout-header class="header">
+  <a-layout-header  id="components-layout-demo-top-side-2">
     <div class="logo" />
     <a-menu
         theme="dark"

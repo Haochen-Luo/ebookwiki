@@ -79,3 +79,15 @@ Only the owner of this repository can see this message.
     <a-layout-footer>Footer</a-layout-footer>
   </a-layout>
 ```
+### 3/8
+重新组织了App.vue使用了
+```vue
+<template>
+  <the-header/>
+  <router-view/>
+  <the-footer/>
+</template>
+```
+<router-view>访问views对应的文件
+<the-header>和<the-footer>对应的是components的文件
+the-footer.vue和the-header.vue
