@@ -44,4 +44,37 @@ public class EbookResp {
     public void setCategory1Id(Long category1Id) {
         this.category1Id = category1Id;
     }
+
+    public Long getCategory2Id() {
+        return category2Id;
+    }
+
+    public void setCategory2Id(Long category2Id) {
+        this.category2Id = category2Id;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+
+        this.description = description;
+    }
+
+    public String getCover() {
+        return cover;
+    }
+
+    public void setCover(String cover) {
+        this.cover = cover;
+    }
+
+    public Integer getDocCount() {
+        return docCount;
+    }
+
+    public void setDocCount(Integer docCount) {
+        this.docCount = docCount;
+    }
 }

@@ -1,10 +1,10 @@
 # drop table if exists `test`;
 
-create table `test`(id int,name varchar(50),password varchar(50));
+# create table `test`(id int,name varchar(50),password varchar(50));
 
-insert into `test` values (1,"robert","password1");
+# insert into `test` values (1,"robert","password1");
 
-select * from test;
+# select * from test;
 
 
 # 电子书表

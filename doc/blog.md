@@ -13,6 +13,10 @@ TestMapper再去找对应的xml
 
 修改连接还有domain mapper的targetPackage所在位置
 
+- 补充：
+  - domain的类和数据库的表一一对应，与数据库中的属性值基本一致，实现getter和setter方法。
+  - Mapper是常说的DAO（Data Access Object）层，对数据库进行增删改查，是写接口的    
+
 ## 2022/2/10
 
 ### 用Mybatis generator生成的demoMapper的selectByExample
@@ -94,3 +98,15 @@ the-footer.vue和the-header.vue
 
 ### 3/9
 ref可以用来绑定数据要ebooks.value = 
+
+### 3/10
+很有意思EbookResp需要把所有的属性对应的getter和setter写完，才能返回完整的属性json
+最开始只有name id categoryID1所以也只能显示这几个属性
+个人推测是因为ebookService中的BeanUtils.copyProperties(ebook,ebookResp);
+如果没有对应的setter方法，是无法设置属性的
+
+- 动态SQL
+```
+if(!ObjectUtils.isEmpty(ebookRequest.getName())){
+criteria.andNameLike("%"+ebookRequest.getName()+"%");}
+```
