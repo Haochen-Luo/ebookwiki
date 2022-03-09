@@ -91,3 +91,6 @@ Only the owner of this repository can see this message.
 <router-view>访问views对应的文件
 <the-header>和<the-footer>对应的是components的文件
 the-footer.vue和the-header.vue
+
+### 3/9
+ref可以用来绑定数据要ebooks.value = 

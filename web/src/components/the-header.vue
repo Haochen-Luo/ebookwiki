@@ -4,9 +4,10 @@
     <a-menu
         theme="dark"
         mode="horizontal"
-        v-model:selectedKeys="selectedKeys1"
+
         :style="{ lineHeight: '64px' }"
     >
+<!--      //v-model:selectedKeys="selectedKeys1"-->
       <a-menu-item key="1">
         nav 1
       </a-menu-item>
