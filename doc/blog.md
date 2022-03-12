@@ -110,3 +110,23 @@ ref可以用来绑定数据要ebooks.value =
 if(!ObjectUtils.isEmpty(ebookRequest.getName())){
 criteria.andNameLike("%"+ebookRequest.getName()+"%");}
 ```
+
+### 3/11
+拦截器:Spring中的登录校验 权限校验 请求日志打印
+
+SpringBoot过滤器的范围处于容器中,
+会先进入容器再访问EbookApplication这个网页应用
+
+过滤器要调用业务方法filterChain.doFilter(servletRequest, servletResponse);
+拦截器不用自己调用业务方法https://coding.imooc.com/lesson/474.html#mid=41797
+
+```
+2022-03-11 12:14:41.559  INFO 12332 --- [nio-8881-exec-3] com.example.ebook.filter.LogFilter       : ------------- LogFilter 开始 -------------
+2022-03-11 12:14:41.560  INFO 12332 --- [nio-8881-exec-3] com.example.ebook.filter.LogFilter       : 请求地址: http://localhost:8881/ebook/list GET
+2022-03-11 12:14:41.560  INFO 12332 --- [nio-8881-exec-3] com.example.ebook.filter.LogFilter       : 远程地址: 127.0.0.1
+2022-03-11 12:14:41.560  INFO 12332 --- [nio-8881-exec-3] c.e.ebook.interceptor.LogInterceptor     : ------------- LogInterceptor 开始 -------------
+2022-03-11 12:14:41.561  INFO 12332 --- [nio-8881-exec-3] c.e.ebook.interceptor.LogInterceptor     : 请求地址: http://localhost:8881/ebook/list GET
+2022-03-11 12:14:41.561  INFO 12332 --- [nio-8881-exec-3] c.e.ebook.interceptor.LogInterceptor     : 远程地址: 127.0.0.1
+2022-03-11 12:14:41.597  INFO 12332 --- [nio-8881-exec-3] c.e.ebook.interceptor.LogInterceptor     : ------------- LogInterceptor 结束 耗时：36 ms -------------
+2022-03-11 12:14:41.598  INFO 12332 --- [nio-8881-exec-3] com.example.ebook.filter.LogFilter       : ------------- LogFilter 结束 耗时：38 ms -------------
+```

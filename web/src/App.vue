@@ -1,8 +1,8 @@
 <template>
   <the-header/>
   <router-view/>
-  <the-footer/>
-
+<!--  <the-footer/>-->
+<!---->
 </template>
 
 <style>
