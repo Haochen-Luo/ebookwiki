@@ -3,10 +3,11 @@
     <a-layout-sider width="200" style="background: #fff">
       <a-menu
           mode="inline"
-          v-model:selectedKeys="selectedKeys2"
-          v-model:openKeys="openKeys"
+
           :style="{ height: '100%', borderRight: 0 }"
       >
+<!--        v-model:selectedKeys="selectedKeys2"-->
+<!--        v-model:openKeys="openKeys"-->
         <a-sub-menu key="sub1">
           <template #title>
             <span><user-outlined />subnav 1</span>
@@ -67,12 +68,16 @@
 <!--                  src="https://gw.alipayobjects.com/zos/rmsportal/mqaQswcyDLcXyDKnZfES.png"-->
 <!--              />-->
 <!--            </template>-->
-            <a-list-item-meta :description="item.description">
+
+
+
+            <a-list-item-meta :description=item.description+item.cover>
               <template #title>
                 <a :href="item.href">{{ item.name}}</a>
               </template>
 
-              <template #avatar><a-avatar :src="item.cover" /></template>
+              <template #avatar><a-avatar :src="item.cover" /><a-avatar :src="item.cover" /></template>
+
             </a-list-item-meta>
           </a-list-item>
         </template>
@@ -121,11 +126,15 @@ export default defineComponent({
     ];
     //reactive里是空对象
     onMounted(()=> {
-          axios.get("http://localhost:8881/ebook/list").then(
+          axios.get("ebook/list").then(
               (response) => {
                 const data = response.data;
                 ebooks.value = data.content;
                 ebooks1.bookdata = data.content;
+                console.log('\n\n\n\n\n\n\n\n\n\n');
+                console.log();
+                console.log();
+                console.log();
                 console.log(response);
               })
         })

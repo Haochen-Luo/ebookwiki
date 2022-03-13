@@ -12,11 +12,12 @@ module.exports = {
     ecmaVersion: 2020
   },
   rules: {
-    'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
+    'no-console': process.env.NODE_ENV === 'production' ? 'off' : 'off',
     'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     'no-used-components':'off',
     '@typescript-eslint/no-explicit-any': 0,
     'vue/no-unused-components':'off',
-    'vue/no-unused-vars':'off'
+    'vue/no-unused-vars':'off',
+
   }
 }

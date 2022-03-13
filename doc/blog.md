@@ -130,3 +130,8 @@ SpringBoot过滤器的范围处于容器中,
 2022-03-11 12:14:41.597  INFO 12332 --- [nio-8881-exec-3] c.e.ebook.interceptor.LogInterceptor     : ------------- LogInterceptor 结束 耗时：36 ms -------------
 2022-03-11 12:14:41.598  INFO 12332 --- [nio-8881-exec-3] com.example.ebook.filter.LogFilter       : ------------- LogFilter 结束 耗时：38 ms -------------
 ```
+
+###
+通过ant-design view的a-avatar来添加头像
+<template #avatar><a-avatar :src="item.cover" /><a-avatar :src="item.cover" /></template>
+![img_2.png](img_2.png)
