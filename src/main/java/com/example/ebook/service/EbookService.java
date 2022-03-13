@@ -5,6 +5,7 @@ import com.example.ebook.domain.EbookExample;
 import com.example.ebook.mapper.EbookMapper;
 import com.example.ebook.request.EbookRequest;
 import com.example.ebook.resp.EbookResp;
+import com.example.ebook.resp.PageResp;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.slf4j.Logger;
@@ -27,7 +28,7 @@ public class EbookService {
 // 原本是List<Ebook>
 //    有了List<EbookResp>可以把List<Ebook>换成List<EbookResp>
 //    public List<Ebook> list(EbookRequest ebookRequest){
-    public List<EbookResp> list(EbookRequest ebookRequest){
+    public  PageResp<EbookResp> list(EbookRequest ebookRequest){
 
 
 
@@ -56,7 +57,13 @@ public class EbookService {
             respList.add(ebookResp);
         }
 
-        return respList;
+        PageResp<EbookResp> pageResp = new PageResp();
+        pageResp.setTotal(pageInfo.getTotal());
+        pageResp.setList(respList);
+
+        return pageResp;
+
+
     }
 //    ebookMapper.selectByExample(null);类似于 where. null 意味着select all
 }
