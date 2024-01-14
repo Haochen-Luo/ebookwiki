@@ -22,7 +22,7 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 from torch.nn import CrossEntropyLoss
-import numpy as np
+
 from ...activations import ACT2FN
 from ...modeling_outputs import (
     BaseModelOutput,
@@ -41,11 +41,7 @@ from ...utils import (
 )
 from ..auto import AutoModelForCausalLM, AutoModelForSeq2SeqLM
 from .configuration_blip_2 import Blip2Config, Blip2QFormerConfig, Blip2VisionConfig
-from ...image_transforms import normalize as inorm
-import torchvision.transforms as transforms
-from ...image_utils import (
-    OPENAI_CLIP_MEAN,
-    OPENAI_CLIP_STD)
+
 
 logger = logging.get_logger(__name__)
 
@@ -99,9 +95,7 @@ class Blip2VisionEmbeddings(nn.Module):
         self.image_size = config.image_size
         self.patch_size = config.patch_size
 
-        self.class_embedding = nn.Parameter(
-            torch.randn(1, 1, self.embed_dim),
-        )
+        self.class_embedding = nn.Parameter(torch.randn(1, 1, self.embed_dim))
 
         self.patch_embedding = nn.Conv2d(
             in_channels=3, out_channels=self.embed_dim, kernel_size=self.patch_size, stride=self.patch_size
@@ -115,7 +109,7 @@ class Blip2VisionEmbeddings(nn.Module):
     def forward(self, pixel_values: torch.FloatTensor) -> torch.Tensor:
         batch_size = pixel_values.shape[0]
         target_dtype = self.patch_embedding.weight.dtype
-        patch_embeds = self.patch_embedding(pixel_values)  # shape = [*, width, grid, grid]
+        patch_embeds = self.patch_embedding(pixel_values.to(dtype=target_dtype))  # shape = [*, width, grid, grid]
         patch_embeds = patch_embeds.flatten(2).transpose(1, 2)
 
         class_embeds = self.class_embedding.expand(batch_size, 1, -1).to(target_dtype)
@@ -175,11 +169,7 @@ class Blip2Attention(nn.Module):
         mixed_qkv = mixed_qkv.reshape(bsz, tgt_len, 3, self.num_heads, embed_dim // self.num_heads).permute(
             2, 0, 3, 1, 4
         )
-        query_states, key_states, value_states = (
-            mixed_qkv[0],
-            mixed_qkv[1],
-            mixed_qkv[2],
-        )
+        query_states, key_states, value_states = mixed_qkv[0], mixed_qkv[1], mixed_qkv[2]
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_states, key_states.transpose(-1, -2))
@@ -283,13 +273,8 @@ class Blip2PreTrainedModel(PreTrainedModel):
     config_class = Blip2Config
     base_model_prefix = "blip"
     supports_gradient_checkpointing = True
-    _keys_to_ignore_on_load_missing = [
-        r"position_ids",
-        r"language_model.encoder.embed_tokens.weight",
-        r"language_model.decoder.embed_tokens.weight",
-        r"language_model.lm_head.weight",
-    ]
     _no_split_modules = ["Blip2Attention", "T5Block", "OPTDecoderLayer"]
+    _skip_keys_device_placement = "past_key_values"
     _keep_in_fp32_modules = ["wo"]
 
     def _init_weights(self, module):
@@ -311,10 +296,6 @@ class Blip2PreTrainedModel(PreTrainedModel):
             module.weight.data.fill_(1.0)
         elif isinstance(module, nn.Linear) and module.bias is not None:
             module.bias.data.zero_()
-
-    def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, Blip2Encoder):
-            module.gradient_checkpointing = value
 
 
 BLIP_2_START_DOCSTRING = r"""
@@ -488,17 +469,11 @@ class Blip2Encoder(nn.Module):
             if output_hidden_states:
                 encoder_states = encoder_states + (hidden_states,)
             if self.gradient_checkpointing and self.training:
-
-                def create_custom_forward(module):
-                    def custom_forward(*inputs):
-                        return module(*inputs, output_attentions)
-
-                    return custom_forward
-
-                layer_outputs = torch.utils.checkpoint.checkpoint(
-                    create_custom_forward(encoder_layer),
+                layer_outputs = self._gradient_checkpointing_func(
+                    encoder_layer.__call__,
                     hidden_states,
                     attention_mask,
+                    output_attentions,
                 )
             else:
                 layer_outputs = encoder_layer(
@@ -955,19 +930,12 @@ class Blip2QFormerEncoder(nn.Module):
 
             if getattr(self.config, "gradient_checkpointing", False) and self.training:
                 if use_cache:
-                    logger.warn(
+                    logger.warning(
                         "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
                     )
                     use_cache = False
-
-                def create_custom_forward(module):
-                    def custom_forward(*inputs):
-                        return module(*inputs, past_key_value, output_attentions, query_length)
-
-                    return custom_forward
-
-                layer_outputs = torch.utils.checkpoint.checkpoint(
-                    create_custom_forward(layer_module),
+                layer_outputs = self._gradient_checkpointing_func(
+                    layer_module.__call__,
                     hidden_states,
                     attention_mask,
                     layer_head_mask,
@@ -1063,7 +1031,7 @@ class Blip2QFormerModel(Blip2PreTrainedModel):
                 Mask with ones indicating tokens to attend to, zeros for tokens to ignore.
             input_shape (`Tuple[int]`):
                 The shape of the input to the model.
-            device: (`torch.device`):
+            device (`torch.device`):
                 The device of the input to the model.
 
         Returns:
@@ -1095,17 +1063,17 @@ class Blip2QFormerModel(Blip2PreTrainedModel):
 
     def forward(
         self,
-        query_embeds,
-        attention_mask=None,
-        head_mask=None,
-        encoder_hidden_states=None,
-        encoder_attention_mask=None,
-        past_key_values=None,
-        use_cache=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
+        query_embeds: torch.FloatTensor,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        encoder_attention_mask: Optional[torch.FloatTensor] = None,
+        past_key_values: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[Tuple[torch.Tensor], BaseModelOutputWithPoolingAndCrossAttentions]:
         r"""
         encoder_hidden_states  (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`, `optional`):
             Sequence of hidden-states at the output of the last layer of the encoder. Used in the cross-attention if
@@ -1155,17 +1123,13 @@ class Blip2QFormerModel(Blip2PreTrainedModel):
         # If a 2D or 3D attention mask is provided for the cross-attention
         # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
         if encoder_hidden_states is not None:
-            if type(encoder_hidden_states) == list:
+            if isinstance(encoder_hidden_states, list):
                 encoder_batch_size, encoder_sequence_length, _ = encoder_hidden_states[0].size()
             else:
-                (
-                    encoder_batch_size,
-                    encoder_sequence_length,
-                    _,
-                ) = encoder_hidden_states.size()
+                encoder_batch_size, encoder_sequence_length, _ = encoder_hidden_states.size()
             encoder_hidden_shape = (encoder_batch_size, encoder_sequence_length)
 
-            if type(encoder_attention_mask) == list:
+            if isinstance(encoder_attention_mask, list):
                 encoder_extended_attention_mask = [self.invert_attention_mask(mask) for mask in encoder_attention_mask]
             elif encoder_attention_mask is None:
                 encoder_attention_mask = torch.ones(encoder_hidden_shape, device=device)
@@ -1235,6 +1199,11 @@ class Blip2Model(Blip2PreTrainedModel):
             language_model = AutoModelForCausalLM.from_config(config.text_config)
         else:
             language_model = AutoModelForSeq2SeqLM.from_config(config.text_config)
+
+        # Update _tied_weights_keys using the base model used.
+        if language_model._tied_weights_keys is not None:
+            self._tied_weights_keys = [f"language_model.{k}" for k in language_model._tied_weights_keys]
+
         self.language_model = language_model
 
         # Initialize weights and apply final processing
@@ -1286,14 +1255,10 @@ class Blip2Model(Blip2PreTrainedModel):
         >>> import torch
         >>> from transformers import AutoTokenizer, Blip2Model
 
-        >>> device = "cuda" if torch.cuda.is_available() else "cpu"
-
-        >>> model = Blip2Model.from_pretrained("Salesforce/blip2-opt-2.7b", torch_dtype=torch.float16)
-
-        >>> model.to(device)  # doctest: +IGNORE_RESULT
+        >>> model = Blip2Model.from_pretrained("Salesforce/blip2-opt-2.7b")
 
         >>> tokenizer = AutoTokenizer.from_pretrained("Salesforce/blip2-opt-2.7b")
-        >>> inputs = tokenizer(["a photo of a cat", "a photo of a dog"], padding=True, return_tensors="pt").to(device)
+        >>> inputs = tokenizer(["a photo of a cat"], padding=True, return_tensors="pt")
         >>> text_features = model.get_text_features(**inputs)
         ```"""
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
@@ -1347,16 +1312,12 @@ class Blip2Model(Blip2PreTrainedModel):
         >>> import requests
         >>> from transformers import AutoProcessor, Blip2Model
 
-        >>> device = "cuda" if torch.cuda.is_available() else "cpu"
-
-        >>> model = Blip2Model.from_pretrained("Salesforce/blip2-opt-2.7b", torch_dtype=torch.float16)
-
-        >>> model.to(device)  # doctest: +IGNORE_RESULT
+        >>> model = Blip2Model.from_pretrained("Salesforce/blip2-opt-2.7b")
 
         >>> processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
-        >>> inputs = processor(images=image, return_tensors="pt").to(device, torch.float16)
+        >>> inputs = processor(images=image, return_tensors="pt")
         >>> image_outputs = model.get_image_features(**inputs)
         ```"""
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
@@ -1395,15 +1356,12 @@ class Blip2Model(Blip2PreTrainedModel):
         >>> import requests
         >>> from transformers import Blip2Processor, Blip2Model
 
-        >>> device = "cuda" if torch.cuda.is_available() else "cpu"
-
         >>> processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
-        >>> model = Blip2Model.from_pretrained("Salesforce/blip2-opt-2.7b", torch_dtype=torch.float16)
-        >>> model.to(device)  # doctest: +IGNORE_RESULT
+        >>> model = Blip2Model.from_pretrained("Salesforce/blip2-opt-2.7b")
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
-        >>> inputs = processor(images=image, return_tensors="pt").to(device, torch.float16)
+        >>> inputs = processor(images=image, return_tensors="pt")
         >>> qformer_outputs = model.get_qformer_features(**inputs)
         ```"""
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
@@ -1570,6 +1528,12 @@ class Blip2Model(Blip2PreTrainedModel):
 
     One can optionally pass `input_ids` to the model, which serve as a text prompt, to make the language model continue
     the prompt. Otherwise, the language model starts generating text from the [BOS] (beginning-of-sequence) token.
+
+    <Tip>
+
+    Note that Flan-T5 checkpoints cannot be cast to float16. They are pre-trained using bfloat16.
+
+    </Tip>
     """,
     BLIP_2_START_DOCSTRING,
 )
@@ -1590,6 +1554,11 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel):
             language_model = AutoModelForCausalLM.from_config(config.text_config)
         else:
             language_model = AutoModelForSeq2SeqLM.from_config(config.text_config)
+
+        # Update _tied_weights_keys using the base model used.
+        if language_model._tied_weights_keys is not None:
+            self._tied_weights_keys = [f"language_model.{k}" for k in language_model._tied_weights_keys]
+
         self.language_model = language_model
 
         # Initialize weights and apply final processing
@@ -1631,7 +1600,7 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel):
                 "The `language_model` is not in the `hf_device_map` dictionary and you are running your script"
                 " in a multi-GPU environment. this may lead to unexpected behavior when using `accelerate`."
                 " Please pass a `device_map` that contains `language_model` to remove this warning."
-                " Please refer to https://github.com/huggingface/blog/blob/main/accelerate-large-models.md for",
+                " Please refer to https://github.com/huggingface/blog/blob/main/accelerate-large-models.md for"
                 " more details on creating a `device_map` for large models.",
             )
 
@@ -1651,15 +1620,13 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel):
         output_hidden_states: Optional[bool] = None,
         labels: Optional[torch.LongTensor] = None,
         return_dict: Optional[bool] = None,
-        inputs_embeds: Optional[torch.FloatTensor] = None,
-        normalize_vision_input: bool = False,
     ) -> Union[Tuple, Blip2ForConditionalGenerationModelOutput]:
         r"""
         Returns:
 
         Examples:
 
-        Image captioning (without providing a text prompt):
+        Prepare processor, model and image input
 
         ```python
         >>> from PIL import Image
@@ -1671,13 +1638,16 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel):
 
         >>> processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
         >>> model = Blip2ForConditionalGeneration.from_pretrained(
-        ...     "Salesforce/blip2-opt-2.7b", torch_dtype=torch.float16
-        ... )
-        >>> model.to(device)  # doctest: +IGNORE_RESULT
+        ...     "Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16
+        ... )  # doctest: +IGNORE_RESULT
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
+        ```
 
+        Image captioning (without providing a text prompt):
+
+        ```python
         >>> inputs = processor(images=image, return_tensors="pt").to(device, torch.float16)
 
         >>> generated_ids = model.generate(**inputs)
@@ -1689,24 +1659,24 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel):
         Visual question answering (prompt = question):
 
         ```python
-        >>> from PIL import Image
-        >>> import requests
-        >>> from transformers import Blip2Processor, Blip2ForConditionalGeneration
-        >>> import torch
-
-        >>> device = "cuda" if torch.cuda.is_available() else "cpu"
-
-        >>> processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
-        >>> model = Blip2ForConditionalGeneration.from_pretrained(
-        ...     "Salesforce/blip2-opt-2.7b", torch_dtype=torch.float16
-        ... )
-        >>> model.to(device)  # doctest: +IGNORE_RESULT
-
-        >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
-        >>> image = Image.open(requests.get(url, stream=True).raw)
-
         >>> prompt = "Question: how many cats are there? Answer:"
-        >>> inputs = processor(images=image, text=prompt, return_tensors="pt").to(device, torch.float16)
+        >>> inputs = processor(images=image, text=prompt, return_tensors="pt").to(device="cuda", dtype=torch.float16)
+
+        >>> generated_ids = model.generate(**inputs)
+        >>> generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+        >>> print(generated_text)
+        two
+        ```
+
+        Note that int8 inference is also supported through [bitsandbytes](https://github.com/TimDettmers/bitsandbytes).
+        This greatly reduces the amount of memory used by the model while maintaining the same performance.
+
+        ```python
+        >>> model = Blip2ForConditionalGeneration.from_pretrained(
+        ...     "Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.bfloat16
+        ... )  # doctest: +IGNORE_RESULT
+
+        >>> inputs = processor(images=image, text=prompt, return_tensors="pt").to(device="cuda", dtype=torch.bfloat16)
 
         >>> generated_ids = model.generate(**inputs)
         >>> generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
@@ -1715,31 +1685,6 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel):
         ```"""
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        # print("min max before norm",torch.min(pixel_values) ,torch.max(pixel_values))
-        # assert torch.min(pixel_values) >= 0.0 and torch.max(pixel_values) <= 1.0
-        # from torchvision.transforms import Normalize 
-        # from torchvision.transforms.functional import normalize as tnorm
-        
-        # pixel_values_clone = pixel_values.cpu().clone().detach().numpy()
-        # pixel_values_clone_inormed = inorm(pixel_values_clone, mean=OPENAI_CLIP_MEAN, std=OPENAI_CLIP_STD)
-        if normalize_vision_input:
-            normalize = transforms.Normalize(mean= OPENAI_CLIP_MEAN,std = OPENAI_CLIP_STD)
-            pixel_values = normalize(pixel_values)
-        """
-        
-        diff = pixel_values_clone_inormed - pixel_values.cpu().clone().detach().numpy()
-        if type(diff) == type([1,23]):
-            print(len(diff))
-        else:
-            print(diff.shape)
-        difference = np.linalg.norm(diff)
-        if np.isclose(difference, 0, atol=1e-6):
-            print("The two normalization functions produce the same result!")
-        else:
-            print("The results from the two normalization functions differ.")
-        """
-        
-        # pixel_values = torch.from_numpy(pixel_values).to(device)
         # step 1: forward the images through the vision encoder,
         # to get image embeddings of shape (batch_size, seq_len, hidden_size)
         vision_outputs = self.vision_model(
@@ -1769,9 +1714,7 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel):
         language_model_attention_mask = torch.ones(
             language_model_inputs.size()[:-1], dtype=torch.long, device=language_model_inputs.device
         )
-        if inputs_embeds is None:
-            inputs_embeds = self.language_model.get_input_embeddings()(input_ids)
-  
+        inputs_embeds = self.language_model.get_input_embeddings()(input_ids)
         inputs_embeds = torch.cat([language_model_inputs, inputs_embeds.to(language_model_inputs.device)], dim=1)
 
         if attention_mask is None:
@@ -1854,78 +1797,6 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel):
             self._preprocess_accelerate()
 
         batch_size = pixel_values.shape[0]
-        image_embeds = self.vision_model(pixel_values, return_dict=True).last_hidden_state
-        image_attention_mask = torch.ones(image_embeds.size()[:-1], dtype=torch.long, device=image_embeds.device)
-
-        query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
-        query_outputs = self.qformer(
-            query_embeds=query_tokens,
-            encoder_hidden_states=image_embeds,
-            encoder_attention_mask=image_attention_mask,
-            return_dict=True,
-        )
-        query_output = query_outputs.last_hidden_state
-
-        language_model_inputs = self.language_projection(query_output)
-        language_attention_mask = torch.ones(
-            language_model_inputs.size()[:-1], dtype=torch.long, device=language_model_inputs.device
-        )
-        if input_ids is None:
-            input_ids = (
-                torch.LongTensor([[self.config.text_config.bos_token_id]])
-                .repeat(batch_size, 1)
-                .to(image_embeds.device)
-            )
-        if attention_mask is None:
-            attention_mask = torch.ones_like(input_ids)
-        attention_mask = torch.cat([language_attention_mask, attention_mask.to(language_attention_mask.device)], dim=1)
-
-        # concatenate query embeddings with prompt embeddings
-        inputs_embeds = self.get_input_embeddings()(input_ids)
-        inputs_embeds = torch.cat([language_model_inputs, inputs_embeds.to(language_model_inputs.device)], dim=1)
-
-        outputs = self.language_model.generate(
-            inputs_embeds=inputs_embeds,
-            attention_mask=attention_mask,
-            **generate_kwargs,
-        )
-
-        return outputs
-    
-    @torch.no_grad()
-    def generate_attacked(
-        self,
-        pixel_values: torch.FloatTensor,
-        input_ids: Optional[torch.LongTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        **generate_kwargs,
-    ) -> torch.LongTensor:
-        """
-        Overrides `generate` function to be able to use the model as a conditional generator.
-
-        Args:
-            pixel_values (`torch.FloatTensor` of shape (batch_size, num_channels, height, width)):
-                Input images to be processed.
-            input_ids (`torch.LongTensor` of shape (batch_size, sequence_length), *optional*):
-                The sequence used as a prompt for the generation.
-            attention_mask (`torch.LongTensor` of shape (batch_size, sequence_length), *optional*):
-                Mask to avoid performing attention on padding token indices
-
-        Returns:
-            captions (list): A list of strings of length batch_size * num_captions.
-        """
-        if hasattr(self, "hf_device_map"):
-            # preprocess for `accelerate`
-            self._preprocess_accelerate()
-
-        batch_size = pixel_values.shape[0]
-        # assert torch.min(pixel_values) >= 0.0 and torch.max(pixel_values) <= 1.0
-        # device = pixel_values.device
-        # pixel_values = inorm(pixel_values.numpy(), mean=OPENAI_CLIP_MEAN, std=OPENAI_CLIP_STD)
-        # pixel_values = torch.from_numpy(pixel_values).to(device)
-        normalizer = transforms.Normalize(mean= OPENAI_CLIP_MEAN,std = OPENAI_CLIP_STD)
-        pixel_values = normalizer(pixel_values)
-        
         image_embeds = self.vision_model(pixel_values, return_dict=True).last_hidden_state
         image_attention_mask = torch.ones(image_embeds.size()[:-1], dtype=torch.long, device=image_embeds.device)
 
